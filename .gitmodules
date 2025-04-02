@@ -1,0 +1,3 @@
+[submodule "modules/terraform-google-kms"]
+	path = modules/terraform-google-kms
+	url = git@github.com:mikamakusa/terraform-google-kms.git

@@ -56,34 +56,100 @@ resource "google_bigtable_authorized_view" "this" {
 }
 
 resource "google_bigtable_gc_policy" "this" {
-  count         = ((length(var.instance) && length(var.table))) == 0 ? 0 : length(var.gc_policy)
-  column_family = ""
-  instance_name = ""
-  table         = ""
+  count           = ((length(var.instance) && length(var.table))) == 0 ? 0 : length(var.gc_policy)
+  column_family   = lookup(var.gc_policy[count.index], "column_family")
+  instance_name   = element(google_bigtable_instance.this.*.name, lookup(var.gc_policy[count.index], "instance_id"))
+  table           = element(google_bigtable_table.this.*.name, lookup(var.gc_policy[count.index], "table_id"))
+  project         = data.google_project.this.project_id
+  mode            = lookup(var.gc_policy[count.index], "mode")
+  gc_rules        = lookup(var.gc_policy[count.index], "gc_rules")
+  deletion_policy = lookup(var.gc_policy[count.index], "deletion_policy")
+  ignore_warnings = lookup(var.gc_policy[count.index], "ignore_warnings")
+
+  dynamic "max_age" {
+    for_each = try(lookup(var.gc_policy[count.index], "max_age") == null ? [] : ["max_age"])
+    content {
+      duration = lookup(max_age.value, "duration")
+    }
+  }
+
+  dynamic "max_version" {
+    for_each = try(lookup(var.gc_policy[count.index], "max_version") == null ? [] : ["max_version"])
+    content {
+      number = lookup(max_version.value, "number")
+    }
+  }
+
 }
 
 resource "google_bigtable_instance" "this" {
-  count = length(var.instance)
-  name  = ""
+  count               = length(var.instance)
+  name                = lookup(var.instance[count.index], "name")
+  project             = data.google_project.this.project_id
+  display_name        = lookup(var.instance[count.index], "display_name")
+  force_destroy       = lookup(var.instance[count.index], "force_destroy")
+  deletion_protection = lookup(var.instance[count.index], "deletion_protection")
+  labels              = lookup(var.instance[count.index], "labels")
+
+  dynamic "cluster" {
+    for_each = lookup(var.instance[count.index], "cluster")
+    content {
+      cluster_id   = lookup(cluster.value, "cluster_id")
+      zone         = lookup(cluster.value, "zone")
+      num_nodes    = lookup(cluster.value, "num_nodes")
+      storage_type = lookup(cluster.value, "storage_type")
+      kms_key_name = try(element(module.kms.google_kms_crypto_key_id, lookup(cluster.value, "kms_key_id")))
+
+      dynamic "autoscaling_config" {
+        for_each = try(lookup(cluster.value, "autoscaling_config") == null ? [] : ["autoscaling_config"])
+        content {
+          cpu_target     = lookup(autoscaling_config.value, "cpu_target")
+          max_nodes      = lookup(autoscaling_config.value, "max_nodes")
+          min_nodes      = lookup(autoscaling_config.value, "min_nodes")
+          storage_target = lookup(autoscaling_config.value, "storage_target")
+        }
+      }
+    }
+  }
 }
 
 resource "google_bigtable_instance_iam_binding" "this" {
   count    = length(var.instance) == 0 ? 0 : length(var.instance_iam_binding)
-  instance = ""
-  members  = []
-  role     = ""
+  instance = element(google_bigtable_instance.this.*.name, lookup(var.instance_iam_binding[count.index], "instance_id"))
+  members  = lookup(var.instance_iam_binding[count.index], "members")
+  role     = lookup(var.instance_iam_binding[count.index], "role")
 }
 
 resource "google_bigtable_table" "this" {
-  count         = length(var.instance) == 0 ? 0 : length(var.table)
-  instance_name = ""
-  name          = ""
+  count                   = length(var.instance) == 0 ? 0 : length(var.table)
+  instance_name           = element(google_bigtable_instance.this.*.name, lookup(var.table[count.index], "instance_id"))
+  name                    = lookup(var.table[count.index], "name")
+  project                 = data.google_project.this.project_id
+  split_keys              = lookup(var.table[count.index], "split_keys")
+  deletion_protection     = lookup(var.table[count.index], "deletion_protection")
+  change_stream_retention = lookup(var.table[count.index], "change_stream_retention")
+
+  dynamic "automated_backup_policy" {
+    for_each = try(lookup(var.table[count.index], "automated_backup_policy") == null ? [] : ["automated_backup_policy"])
+    content {
+      retention_period = lookup(automated_backup_policy.value, "retention_period")
+      frequency        = lookup(automated_backup_policy.value, "frequency")
+    }
+  }
+
+  dynamic "column_family" {
+    for_each = try(lookup(var.table[count.index], "column_family") == null ? [] : ["column_family"])
+    content {
+      family = lookup(column_family.value, "family")
+      type   = lookup(column_family.value, "type")
+    }
+  }
 }
 
 resource "google_bigtable_table_iam_binding" "this" {
   count    = length(var.table) == 0 ? 0 : length(var.table_iam_binding)
-  instance = ""
-  members  = []
-  role     = ""
-  table    = ""
+  instance = element(google_bigtable_instance.this.*.name, lookup(var.table_iam_binding[count.index], "instance_id"))
+  members  = lookup(var.table_iam_binding[count.index], "members")
+  role     = lookup(var.table_iam_binding[count.index], "role")
+  table    = element(google_bigtable_table.this.*.name, lookup(var.table_iam_binding[count.index], "table_id"))
 }

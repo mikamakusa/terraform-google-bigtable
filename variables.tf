@@ -1,3 +1,17 @@
+## Modules
+
+variable "keyring" {
+  type    = any
+  default = []
+}
+
+variable "crypto_key" {
+  type    = any
+  default = []
+}
+
+## Resources
+
 variable "app_profile" {
   type = list(object({
     id                                = any
@@ -41,18 +55,45 @@ variable "authorized_view" {
 
 variable "gc_policy" {
   type = list(object({
-    id            = any
-    column_family = string
-    instance_id   = any
-    table_id      = any
+    id              = any
+    column_family   = string
+    instance_id     = any
+    table_id        = any
+    mode            = optional(string)
+    gc_rules        = optional(map(string))
+    deletion_policy = optional(string)
+    ignore_warnings = optional(bool)
+    max_age = optional(list(object({
+      duration = optional(string)
+    })), [])
+    max_version = optional(list(object({
+      number = number
+    })), [])
   }))
   default = []
 }
 
 variable "instance" {
   type = list(object({
-    id   = any
-    name = string
+    id                  = any
+    name                = string
+    display_name        = optional(string)
+    force_destroy       = optional(bool)
+    deletion_protection = optional(bool)
+    labels              = optional(map(string))
+    cluster = list(object({
+      cluster_id   = string
+      zone         = optional(string)
+      num_nodes    = optional(number)
+      storage_type = optional(string)
+      kms_key_id   = optional(any)
+      autoscaling_config = optional(list(object({
+        cpu_target     = number
+        max_nodes      = number
+        min_nodes      = number
+        storage_target = optional(number)
+      })), [])
+    }))
   }))
   default = []
 }
@@ -69,9 +110,20 @@ variable "instance_iam_binding" {
 
 variable "table" {
   type = list(object({
-    id          = any
-    instance_id = any
-    name        = string
+    id                      = any
+    instance_id             = any
+    name                    = string
+    split_keys              = optional(list(string))
+    deletion_protection     = optional(string)
+    change_stream_retention = optional(string)
+    automated_backup_policy = optional(list(object({
+      retention_period = optional(string)
+      frequency        = optional(string)
+    })), [])
+    column_family = optional(list(object({
+      family = string
+      type   = optional(string)
+    })), [])
   }))
   default = []
 }
